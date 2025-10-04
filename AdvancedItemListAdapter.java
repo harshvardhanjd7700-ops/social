@@ -2,6 +2,9 @@ package finix.social.finixapp.adapter;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import com.google.android.exoplayer2.MediaItem;
+import com.google.android.exoplayer2.ui.StyledPlayerView;
+import com.google.android.exoplayer2.ExoPlayer;
 import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
@@ -49,6 +52,7 @@ import android.widget.RatingBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import finix.social.finixapp.model.MediaItem;
 
 import com.android.volley.Request;
 import com.android.volley.Response;
@@ -105,7 +109,6 @@ import finix.social.finixapp.app.App;
 import finix.social.finixapp.constants.Constants;
 import finix.social.finixapp.model.Comment;
 import finix.social.finixapp.model.Item;
-import finix.social.finixapp.model.MediaItem;
 import finix.social.finixapp.util.Api;
 import finix.social.finixapp.util.CustomRequest;
 import finix.social.finixapp.util.TagClick;
@@ -126,6 +129,7 @@ public class AdvancedItemListAdapter extends RecyclerView.Adapter<AdvancedItemLi
     TagSelectingTextview mTagSelectingTextview;
 
     public static int hashTagHyperLinkDisabled = 0;
+
 
     public static final String HASHTAGS_COLOR = "#5BCFF2";
 
@@ -180,6 +184,8 @@ public class AdvancedItemListAdapter extends RecyclerView.Adapter<AdvancedItemLi
 
         public Button mSpotlightMoreBtn;
         public RecyclerView mSpotlightRecyclerView;
+        public StyledPlayerView exoPlayerView;
+        public ExoPlayer exoPlayer; // For holding the player instance
 
 
         public LinearLayout mCardRepostContainer;
@@ -242,6 +248,7 @@ public class AdvancedItemListAdapter extends RecyclerView.Adapter<AdvancedItemLi
 
                 mItemAuthorPhoto = (CircularImageView) v.findViewById(R.id.itemAuthorPhoto);
                 mItemAuthorIcon = (CircularImageView) v.findViewById(R.id.itemAuthorIcon);
+                exoPlayerView = v.findViewById(R.id.exo_player_view);
 
                 mItemFeelingIcon = (CircularImageView) v.findViewById(R.id.itemFeelingIcon);
 
@@ -1026,20 +1033,21 @@ public class AdvancedItemListAdapter extends RecyclerView.Adapter<AdvancedItemLi
             }
         });
 
-        holder.mItemPlayVideo.setOnClickListener(new View.OnClickListener() {
+        holder.mItemPlayVideo.setOnClickListener(v -> {
+            holder.mVideoImg.setVisibility(View.GONE);
+            holder.mItemPlayVideo.setVisibility(View.GONE);
+            holder.exoPlayerView.setVisibility(View.VISIBLE);
 
-            @Override
-            public void onClick(View v) {
-
-                if (p.getVideoUrl().length() != 0) {
-
-                    watchVideo(p.getVideoUrl());
-
-                } else {
-
-                    watchYoutubeVideo(p.getYouTubeVideoCode());
-                }
+            if (holder.exoPlayer == null) {
+                holder.exoPlayer = new ExoPlayer.Builder(context).build();
+                holder.exoPlayerView.setPlayer(holder.exoPlayer);
+                MediaItem mediaItem = new MediaItem.Builder()
+                        .setUri(p.getVideoUrl())
+                        .build();;
+                holder.exoPlayer.setMediaItem(mediaItem);
+                holder.exoPlayer.prepare();
             }
+            holder.exoPlayer.setPlayWhenReady(true);
         });
 
         if (p.getPostType() == POST_TYPE_DEFAULT) {
