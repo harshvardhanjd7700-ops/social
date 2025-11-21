@@ -407,10 +407,19 @@ public class AdvancedItemListAdapter extends RecyclerView.Adapter<AdvancedItemLi
 
                     // NEW: also handle the shared / autoplay player when its row detaches
                     if (holder == sharedHolder) {
-                        try { if (sharedHolder.playerView != null) sharedHolder.playerView.setPlayer(null); } catch (Throwable ignore) {}
-                        try { if (sharedPlayer != null) sharedPlayer.stop(); } catch (Throwable ignore) {}
-                        try { if (sharedPlayer != null) sharedPlayer.release(); } catch (Throwable ignore) {}
-                        sharedPlayer = null;
+                        try {
+                            if (sharedPlayer != null) {
+                                sharedPlayer.setPlayWhenReady(false);
+                            }
+                        } catch (Throwable ignore) {}
+
+                        try {
+                            if (sharedHolder.playerView != null) {
+                                sharedHolder.playerView.setPlayer(null);
+                            }
+                        } catch (Throwable ignore) {}
+
+                        // Keep sharedPlayer instance alive; only detach it from this row.
                         sharedHolder = null;
                         sharedPosition = RecyclerView.NO_POSITION;
                     }
@@ -604,58 +613,31 @@ public class AdvancedItemListAdapter extends RecyclerView.Adapter<AdvancedItemLi
                     public void onPlaybackStateChanged(int state) {
                         if (sharedHolder != null && state == androidx.media3.common.Player.STATE_READY) {
                             try {
-                                // Player is ready to play, but we KEEP the thumbnail visible here.
-                                if (sharedHolder.mVideoProgressBar != null) {
-                                    sharedHolder.mVideoProgressBar.setVisibility(android.view.View.GONE);
-                                }
+                                sharedHolder.mVideoProgressBar.setVisibility(android.view.View.GONE);
                                 if (sharedHolder.playerView != null) {
                                     sharedHolder.playerView.setVisibility(android.view.View.VISIBLE);
                                     android.view.View surface = sharedHolder.playerView.getVideoSurfaceView();
                                     if (surface != null) surface.setVisibility(android.view.View.VISIBLE);
                                 }
-                                if (sharedHolder.mItemPlayVideo != null) {
-                                    sharedHolder.mItemPlayVideo.setVisibility(android.view.View.GONE);
-                                }
-                                // Do NOT hide mVideoImg here. That is handled in onRenderedFirstFrame().
-                            } catch (Throwable ignore) {}
-                        }
-                    }
-
-                    @Override
-                    public void onRenderedFirstFrame() {
-                        if (sharedHolder != null) {
-                            try {
                                 if (sharedHolder.mVideoImg != null) {
                                     sharedHolder.mVideoImg.setVisibility(android.view.View.GONE);
                                 }
-                                if (sharedHolder.playerView != null) {
-                                    android.view.View surface = sharedHolder.playerView.getVideoSurfaceView();
-                                    if (surface != null) surface.setVisibility(android.view.View.VISIBLE);
+                                if (sharedHolder.mItemPlayVideo != null) {
+                                    sharedHolder.mItemPlayVideo.setVisibility(android.view.View.GONE);
                                 }
-                            } catch (Throwable ignored) {}
+                            } catch (Throwable ignore) {}
                         }
                     }
-
                     @Override
                     public void onPlayerError(androidx.media3.common.PlaybackException error) {
                         Log.e("ExoPlayer", "onPlayerError", error);
                         if (sharedHolder != null) {
                             try {
-                                if (sharedHolder.mVideoProgressBar != null) {
-                                    sharedHolder.mVideoProgressBar.setVisibility(android.view.View.GONE);
-                                }
-                                if (sharedHolder.playerView != null) {
-                                    sharedHolder.playerView.setVisibility(android.view.View.GONE);
-                                }
-                                if (sharedHolder.mVideoImg != null) {
-                                    sharedHolder.mVideoImg.setVisibility(android.view.View.VISIBLE);
-                                }
-                                if (sharedHolder.mItemPlayVideo != null) {
-                                    sharedHolder.mItemPlayVideo.setVisibility(android.view.View.VISIBLE);
-                                }
-                                if (sharedHolder.btnMute != null) {
-                                    sharedHolder.btnMute.setVisibility(android.view.View.GONE);
-                                }
+                                sharedHolder.mVideoProgressBar.setVisibility(android.view.View.GONE);
+                                sharedHolder.playerView.setVisibility(android.view.View.GONE);
+                                sharedHolder.mVideoImg.setVisibility(android.view.View.VISIBLE);
+                                sharedHolder.mItemPlayVideo.setVisibility(android.view.View.VISIBLE);
+                                sharedHolder.btnMute.setVisibility(android.view.View.GONE);
                             } catch (Throwable ignored) {}
                         }
                         try { sharedPlayer.stop(); } catch (Throwable ignored) {}
@@ -1308,17 +1290,21 @@ public class AdvancedItemListAdapter extends RecyclerView.Adapter<AdvancedItemLi
 
         // Also clear shared holder/player if recycled holder was the shared one
         if (sharedHolder == holder) {
-            // Detach any video surface from the shared player before releasing it
             try {
-                if (sharedPlayer != null) {
-                    sharedPlayer.clearVideoSurface();
-                    sharedPlayer.setVideoSurface(null);
+                // Detach the player from this holder's PlayerView — keep the shared player instance
+                if (sharedHolder.playerView != null) {
+                    sharedHolder.playerView.setPlayer(null);
                 }
             } catch (Throwable ignore) {}
 
-            try { if (sharedPlayer != null) sharedPlayer.stop(); } catch (Throwable ignore) {}
-            try { if (sharedPlayer != null) sharedPlayer.release(); } catch (Throwable ignore) {}
-            sharedPlayer = null;
+            // Do NOT stop/release sharedPlayer here; we keep a single shared instance
+            // that is released only from releaseSharedPlayer() (e.g., in Fragment/Activity onDestroyView).
+            try {
+                if (sharedPlayer != null) {
+                    sharedPlayer.setPlayWhenReady(false);
+                }
+            } catch (Throwable ignore) {}
+
             sharedHolder = null;
             sharedPosition = RecyclerView.NO_POSITION;
         }
